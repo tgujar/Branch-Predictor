@@ -39,7 +39,7 @@ uint32_t getLowerNBits(uint32_t val, int n)
 {
   if (n == 32)
     return val;
-  uint32_t mask = 1 << (n + 1);
+  uint32_t mask = 1 << n;
   mask = mask - 1;
   return val & mask;
 }
@@ -69,7 +69,7 @@ void increment(Counter *c, int index)
 {
   int *val = &(c->counts[index]);
   *val += 1;
-  if (*val == c->max_count)
+  if (*val > c->max_count)
     *val = c->max_count;
 }
 
@@ -137,16 +137,12 @@ uint8_t gshare_predict(Gshare *g, uint32_t pc)
 
 void gshare_update(Gshare *g, uint32_t pc, uint8_t outcome)
 {
-  uint8_t predicted = gshare_predict(g, pc);
   uint32_t idx = gshare_getIndex(g, pc);
-  if (predicted == outcome)
-  {
-    increment(g->bc->counter, idx);
-  }
-  else
-  {
+  if (outcome == 0)
     decrement(g->bc->counter, idx);
-  }
+  else
+    increment(g->bc->counter, idx);
+  gshare_add_history(g, outcome == 1);
 }
 
 //
@@ -163,7 +159,7 @@ void init_predictor()
 {
   // Gshare
   int table_size = getTableSize(ghistoryBits);
-  int *arr = malloc(table_size * sizeof(int));
+  int *arr = calloc(table_size, sizeof(int));
   bimodalCounter_init(&gshare_bc, &gshare_c, arr, table_size);
   gshare_init(&gshare, &gshare_bc, ghistoryBits);
 }

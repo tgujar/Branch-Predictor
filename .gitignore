@@ -1,2 +1,6 @@
 *.o
 src/predictor
+*.dSYM
+settings.json
+*.out
+src/tests
