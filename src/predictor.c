@@ -30,11 +30,7 @@ int pcIndexBits;  // Number of bits used for PC index
 int bpType;       // Branch Prediction Type
 int verbose;
 
-//------------------------------------//
-//      Predictor Data Structures     //
-//------------------------------------//
-
-// utils
+//////////////////////////////// utils //////////////////////////////////////////////
 uint32_t getLowerNBits(uint32_t val, int n)
 {
   if (n == 32)
@@ -72,13 +68,7 @@ Counter *counter_init(int table_size, int max_count)
 {
   Counter *c = (Counter *)malloc(sizeof(Counter));
   checkMem(c);
-  int counter_table_size = getTableSize(table_size);
-  if (counter_table_size < 0)
-  {
-    printf("Table size negative");
-    exit(1);
-  }
-  int *counters_arr = (int *)calloc(counter_table_size, sizeof(int));
+  int *counters_arr = (int *)calloc(table_size, sizeof(int));
   checkMem(counters_arr);
   c->counts = counters_arr;
   c->table_size = table_size;
@@ -134,6 +124,10 @@ uint8_t getOutcome(BimodalCounter *bc, int index)
   return bc->counter->counts[index] >= 2;
 }
 
+//------------------------------------//
+//      Predictor Data Structures     //
+//------------------------------------//
+
 // GShare
 struct Gshare
 {
@@ -158,12 +152,18 @@ Lhist *lhist;
 // Choice
 struct Choice
 {
-  Gshare *gshare;
+  uint32_t ghistory;
+  uint32_t ghistoryMask;
   Lhist *lhist;
-  BimodalCounter *bc;
+  BimodalCounter *choice_bc; // we choose global if outcome is true
+  BimodalCounter *global_bc;
 };
-typedef struct Gshare Gshare;
-Gshare *gshare;
+typedef struct Choice Choice;
+Choice *choice;
+
+//------------------------------------//
+//        Predictor Functions         //
+//------------------------------------//
 
 Gshare *
 gshare_init(int ghistoryBits)
@@ -241,7 +241,7 @@ uint32_t lhist_get_hist_index(Lhist *lh, uint32_t pc)
   return getLowerNBits(pc, lh->pc_bits);
 }
 
-uint32_t lhist_predict(Lhist *lh, uint32_t pc)
+uint8_t lhist_predict(Lhist *lh, uint32_t pc)
 {
   uint32_t tidx = lhist_get_hist_index(lh, pc);
   uint32_t cidx = lh->hist_table[tidx];
@@ -273,13 +273,84 @@ void lhist_update(Lhist *lh, uint32_t pc, uint8_t outcome)
   lhist_add_history(lh, pc, outcome == 1);
 }
 
-//
-// TODO: Add your own Branch Predictor data structures here
-//
+Choice *choice_init(int ghistoryBits, int pcIndexBits, int lhistoryBits)
+{
+  Choice *cp = (Choice *)malloc(sizeof(Choice));
+  cp->ghistory = 0;
+  cp->ghistoryMask = getLowerNBits(~0, ghistoryBits);
+  cp->lhist = lhist_init(pcIndexBits, lhistoryBits);
+  int table_size = getTableSize(ghistoryBits);
+  cp->global_bc = bimodalCounter_init(table_size);
 
-//------------------------------------//
-//        Predictor Functions         //
-//------------------------------------//
+  BimodalCounter *bc = bimodalCounter_init(table_size);
+  int *arr = bc->counter->counts;
+  for (int i = 0; i < table_size; i++)
+  {
+    arr[i] = 2; // set to weakly select global
+  }
+  cp->choice_bc = bc;
+
+  return cp;
+}
+
+void choice_destroy(Choice *cp)
+{
+  lhist_destroy(cp->lhist);
+  bimodalCounter_destroy(cp->choice_bc);
+  bimodalCounter_destroy(cp->global_bc);
+  free(cp);
+}
+
+void choice_add_history(Choice *cp, uint32_t pc, bool taken)
+{
+  cp->ghistory = cp->ghistory << 1;
+  if (taken)
+    cp->ghistory |= 1;
+  cp->ghistory &= cp->ghistoryMask;
+
+  lhist_add_history(cp->lhist, pc, taken);
+}
+
+uint8_t choice_predict(Choice *cp, uint32_t pc)
+{
+  bool chooseGlobal = getOutcome(cp->choice_bc, cp->ghistory); // history decides index in table
+  if (chooseGlobal)
+  {
+    return getOutcome(cp->global_bc, cp->ghistory); // global depends only on history
+  }
+  return lhist_predict(cp->lhist, pc);
+}
+
+void choice_update(Choice *cp, uint32_t pc, uint8_t outcome)
+{
+  uint32_t idx = cp->ghistory;
+  ////// Update choice predictor
+  uint8_t global_pred = getOutcome(cp->global_bc, idx);
+  uint8_t lhist_pred = lhist_predict(cp->lhist, pc);
+  // if both predict wrong or both predict correct, stay in the current state
+  if (!((global_pred != outcome && lhist_pred != outcome) || (global_pred == outcome && lhist_pred == outcome)))
+  {
+    if (global_pred == outcome) // if correct pred, enforce
+    {
+      increment(cp->choice_bc->counter, idx);
+    }
+    else
+    {
+      decrement(cp->choice_bc->counter, idx);
+    }
+  }
+
+  // Update local history predictor
+  lhist_update(cp->lhist, pc, outcome == 1);
+
+  // Update globl predictor
+  if (outcome == 0)
+    decrement(cp->global_bc->counter, idx);
+  else
+    increment(cp->global_bc->counter, idx);
+
+  choice_add_history(cp, pc, outcome == 1);
+}
 
 // Initialize the predictor
 //
@@ -292,7 +363,7 @@ void init_predictor()
   case GSHARE:
     gshare = gshare_init(ghistoryBits);
   case TOURNAMENT:
-    lhist = lhist_init(pcIndexBits, lhistoryBits);
+    choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
   case CUSTOM:
   default:
     break;
@@ -315,7 +386,7 @@ make_prediction(uint32_t pc)
   case GSHARE:
     return gshare_predict(gshare, pc);
   case TOURNAMENT:
-    return lhist_predict(lhist, pc);
+    return choice_predict(choice, pc);
   case CUSTOM:
   default:
     break;
@@ -339,7 +410,7 @@ void train_predictor(uint32_t pc, uint8_t outcome)
     gshare_update(gshare, pc, outcome);
     break;
   case TOURNAMENT:
-    lhist_update(lhist, pc, outcome);
+    choice_update(choice, pc, outcome);
     break;
   case CUSTOM:
   default:
