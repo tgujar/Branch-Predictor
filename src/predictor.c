@@ -39,6 +39,8 @@ uint32_t getLowerNBits(uint32_t val, int n)
 {
   if (n == 32)
     return val;
+  if (n == 0)
+    return 0;
   uint32_t mask = 1 << n;
   mask = mask - 1;
   return val & mask;
@@ -49,6 +51,15 @@ int getTableSize(int bits)
   return (1 << bits);
 }
 
+void checkMem(void *v)
+{
+  if (v == NULL)
+  {
+    printf("error allocating memory");
+    exit(EXIT_FAILURE);
+  }
+}
+
 struct Counter
 {
   int *counts;
@@ -56,13 +67,19 @@ struct Counter
   int max_count;
 };
 typedef struct Counter Counter;
-Counter gshare_c, lhist_c;
 
 Counter *counter_init(int table_size, int max_count)
 {
-  Counter *c = malloc(sizeof(Counter));
+  Counter *c = (Counter *)malloc(sizeof(Counter));
+  checkMem(c);
   int counter_table_size = getTableSize(table_size);
-  int *counters_arr = calloc(counter_table_size, sizeof(int));
+  if (counter_table_size < 0)
+  {
+    printf("Table size negative");
+    exit(1);
+  }
+  int *counters_arr = (int *)calloc(counter_table_size, sizeof(int));
+  checkMem(counters_arr);
   c->counts = counters_arr;
   c->table_size = table_size;
   c->max_count = max_count;
@@ -99,7 +116,8 @@ typedef struct BimodalCounter BimodalCounter;
 
 BimodalCounter *bimodalCounter_init(int table_size)
 {
-  BimodalCounter *bc = malloc(sizeof(BimodalCounter));
+  BimodalCounter *bc = (BimodalCounter *)malloc(sizeof(BimodalCounter));
+  checkMem(bc);
   Counter *c = counter_init(table_size, 3);
   bc->counter = c;
   return bc;
@@ -129,15 +147,29 @@ Gshare *gshare;
 // LocalHistory
 struct Lhist
 {
-  int *hist;
-  int hist_table_size;
+  int *hist_table;
+  int hist_bits;
+  int pc_bits;
   BimodalCounter *bc;
 };
 typedef struct Lhist Lhist;
+Lhist *lhist;
 
-Gshare *gshare_init(int ghistoryBits)
+// Choice
+struct Choice
 {
-  Gshare *g = malloc(sizeof(Gshare));
+  Gshare *gshare;
+  Lhist *lhist;
+  BimodalCounter *bc;
+};
+typedef struct Gshare Gshare;
+Gshare *gshare;
+
+Gshare *
+gshare_init(int ghistoryBits)
+{
+  Gshare *g = (Gshare *)malloc(sizeof(Gshare));
+  checkMem(g);
   int table_size = getTableSize(ghistoryBits);
   BimodalCounter *bc = bimodalCounter_init(table_size);
   g->bc = bc;
@@ -184,21 +216,61 @@ void gshare_update(Gshare *g, uint32_t pc, uint8_t outcome)
 // Local History functions
 Lhist *lhist_init(int pcIndexBits, int lhistoryBits)
 {
-  Lhist *lh = malloc(sizeof(Lhist));
+  Lhist *lh = (Lhist *)malloc(sizeof(Lhist));
+  checkMem(lh);
+  lh->hist_bits = lhistoryBits;
+  lh->pc_bits = pcIndexBits;
   int history_table_size = getTableSize(pcIndexBits);
   int counter_table_size = getTableSize(lhistoryBits);
 
-  lh->hist = calloc(history_table_size, sizeof(int));
-  lh->hist_table_size = history_table_size;
+  lh->hist_table = calloc(history_table_size, sizeof(int));
+  checkMem(lh->hist_table);
   lh->bc = bimodalCounter_init(counter_table_size);
   return lh;
 }
 
 void lhist_destroy(Lhist *lh)
 {
-  free(lh->hist);
+  free(lh->hist_table);
   bimodalCounter_destroy(lh->bc);
   free(lh);
+}
+
+uint32_t lhist_get_hist_index(Lhist *lh, uint32_t pc)
+{
+  return getLowerNBits(pc, lh->pc_bits);
+}
+
+uint32_t lhist_predict(Lhist *lh, uint32_t pc)
+{
+  uint32_t tidx = lhist_get_hist_index(lh, pc);
+  uint32_t cidx = lh->hist_table[tidx];
+  return getOutcome(lh->bc, cidx);
+}
+
+void lhist_add_history(Lhist *lh, uint32_t pc, bool taken)
+{
+  uint32_t tidx = lhist_get_hist_index(lh, pc);
+  int *curr_hist = &(lh->hist_table[tidx]);
+  *curr_hist = *curr_hist << 1;
+  if (taken)
+    *curr_hist |= 1;
+  *curr_hist = getLowerNBits(*curr_hist, lh->hist_bits);
+}
+
+void lhist_update(Lhist *lh, uint32_t pc, uint8_t outcome)
+{
+  uint32_t tidx = lhist_get_hist_index(lh, pc); // index into history table
+  uint32_t cidx = lh->hist_table[tidx];         // index for counter = value of history at index tidx
+  if (outcome == 1)
+  {
+    increment(lh->bc->counter, cidx);
+  }
+  else
+  {
+    decrement(lh->bc->counter, cidx);
+  }
+  lhist_add_history(lh, pc, outcome == 1);
 }
 
 //
@@ -213,9 +285,18 @@ void lhist_destroy(Lhist *lh)
 //
 void init_predictor()
 {
-  // Gshare
-  gshare = gshare_init(ghistoryBits);
-  // Local History
+  switch (bpType)
+  {
+  case STATIC:
+    return;
+  case GSHARE:
+    gshare = gshare_init(ghistoryBits);
+  case TOURNAMENT:
+    lhist = lhist_init(pcIndexBits, lhistoryBits);
+  case CUSTOM:
+  default:
+    break;
+  }
 }
 
 // Make a prediction for conditional branch instruction at PC 'pc'
@@ -234,6 +315,7 @@ make_prediction(uint32_t pc)
   case GSHARE:
     return gshare_predict(gshare, pc);
   case TOURNAMENT:
+    return lhist_predict(lhist, pc);
   case CUSTOM:
   default:
     break;
@@ -249,6 +331,18 @@ make_prediction(uint32_t pc)
 //
 void train_predictor(uint32_t pc, uint8_t outcome)
 {
-  // Gshare
-  gshare_update(gshare, pc, outcome);
+  switch (bpType)
+  {
+  case STATIC:
+    return;
+  case GSHARE:
+    gshare_update(gshare, pc, outcome);
+    break;
+  case TOURNAMENT:
+    lhist_update(lhist, pc, outcome);
+    break;
+  case CUSTOM:
+  default:
+    break;
+  }
 }
