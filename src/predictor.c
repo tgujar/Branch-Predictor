@@ -23,6 +23,7 @@ const char *email = "tgujar@ucsd.edu";
 // Handy Global for use in output routines
 const char *bpName[4] = {"Static", "Gshare",
                          "Tournament", "Custom"};
+const int perceptron_threshold = 6;
 
 int ghistoryBits; // Number of bits used for Global History
 int lhistoryBits; // Number of bits used for Local History
@@ -45,6 +46,13 @@ uint32_t getLowerNBits(uint32_t val, int n)
 int getTableSize(int bits)
 {
   return (1 << bits);
+}
+
+int8_t getSign(int32_t v)
+{
+  if (v < 0)
+    return -1;
+  return 1;
 }
 
 void checkMem(void *v)
@@ -161,12 +169,129 @@ struct Choice
 typedef struct Choice Choice;
 Choice *choice;
 
+// Custom
+struct Perceptron
+{
+  uint16_t width;
+  int16_t *weights;
+  int16_t bias;
+};
+typedef struct Perceptron Perceptron;
+
+Perceptron *perceptron_init(int width)
+{
+  Perceptron *p = (Perceptron *)malloc(sizeof(Perceptron));
+  p->weights = calloc(width, sizeof(int16_t));
+  p->width = width;
+  return p;
+}
+
+int32_t perceptron_compute(Perceptron *p, uint32_t ghistoryBits)
+{
+  int32_t out = p->bias;
+  for (int i = 0; i < p->width; i++)
+  {
+    if (ghistoryBits & (1 << i)) // if bit is 1 then taken
+    {
+      out += p->weights[i];
+    }
+    else // not taken
+    {
+      out -= p->weights[i];
+    }
+  }
+  return out;
+}
+
+void perceptron_train(Perceptron *p, uint8_t outcome, uint32_t history_bits) // -1 is NT, 1 is T
+{
+  int32_t y_out = perceptron_compute(p, history_bits);
+  int8_t br_outcome = outcome == 1 ? 1 : -1;
+  if (getSign(y_out) != br_outcome || abs(y_out) < perceptron_threshold)
+  {
+    p->bias += ((ghistoryBits & (1 << p->width)) == 1) ? getSign(y_out) : -getSign(y_out);
+    for (int i = 0; i < p->width; i++)
+    {
+      if (ghistoryBits & (1 << i))
+      {
+        p->weights[i] += getSign(y_out);
+      }
+      else
+      {
+        p->weights[i] -= getSign(y_out);
+      }
+    }
+  }
+}
+
+struct PerceptronTable
+{
+  Perceptron **pt;
+  int table_size;
+  uint32_t ghistory;
+  uint32_t ghistoryMask;
+  uint32_t pcMask;
+};
+typedef struct PerceptronTable PerceptronTable;
+PerceptronTable *ptable;
+
+PerceptronTable *perceptrontable_init(int pcIndexBits, int ghistoryBits)
+{
+  PerceptronTable *ptable = (PerceptronTable *)malloc(sizeof(PerceptronTable));
+  int table_size = getTableSize(pcIndexBits);
+  int perceptron_width = ghistoryBits - 1;
+  ptable->table_size = table_size;
+  ptable->ghistory = 0;
+  ptable->ghistoryMask = getLowerNBits(~0, ghistoryBits);
+  ptable->pcMask = getLowerNBits(~0, pcIndexBits);
+  ptable->pt = calloc(table_size, sizeof(Perceptron *));
+  for (int i = 0; i < table_size; i++)
+  {
+    ptable->pt[i] = perceptron_init(perceptron_width);
+  }
+  return ptable;
+}
+void perceptronTable_addHistory(PerceptronTable *ptable, bool taken)
+{
+  ptable->ghistory = ptable->ghistory << 1;
+  if (taken)
+    ptable->ghistory |= 1;
+  ptable->ghistory &= ptable->ghistoryMask;
+}
+
+Perceptron *perceptronTable_getPerceptron(PerceptronTable *ptable, uint32_t pc)
+{
+  return ptable->pt[pc & ptable->pcMask];
+}
+
+bool canPredict(PerceptronTable *ptable, uint32_t pc)
+{
+  Perceptron *p = perceptronTable_getPerceptron(ptable, pc);
+  int32_t y = perceptron_compute(p, ptable->ghistory);
+  if (abs(y) < perceptron_threshold)
+    return false;
+  return true;
+}
+
+bool perceptronTable_predict(PerceptronTable *ptable, uint32_t pc)
+{
+  Perceptron *p = perceptronTable_getPerceptron(ptable, pc);
+  int32_t y = perceptron_compute(p, ptable->ghistory);
+  return y >= 0;
+}
+
+void perceptronTable_update(PerceptronTable *ptable, uint32_t pc, uint8_t outcome)
+{
+  Perceptron *p = perceptronTable_getPerceptron(ptable, pc);
+  perceptron_train(p, outcome, ptable->ghistory);
+  perceptronTable_addHistory(ptable, outcome == 1);
+}
+
 //------------------------------------//
 //        Predictor Functions         //
 //------------------------------------//
 
-Gshare *
-gshare_init(int ghistoryBits)
+Gshare *gshare_init(int ghistoryBits)
 {
   Gshare *g = (Gshare *)malloc(sizeof(Gshare));
   checkMem(g);
@@ -343,7 +468,7 @@ void choice_update(Choice *cp, uint32_t pc, uint8_t outcome)
   // Update local history predictor
   lhist_update(cp->lhist, pc, outcome == 1);
 
-  // Update globl predictor
+  // Update global predictor
   if (outcome == 0)
     decrement(cp->global_bc->counter, idx);
   else
@@ -365,6 +490,9 @@ void init_predictor()
   case TOURNAMENT:
     choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
   case CUSTOM:
+    ghistoryBits = 10;
+    pcIndexBits = 10;
+    ptable = perceptrontable_init(pcIndexBits, ghistoryBits);
   default:
     break;
   }
@@ -388,6 +516,7 @@ make_prediction(uint32_t pc)
   case TOURNAMENT:
     return choice_predict(choice, pc);
   case CUSTOM:
+    return perceptronTable_predict(ptable, pc);
   default:
     break;
   }
@@ -413,6 +542,8 @@ void train_predictor(uint32_t pc, uint8_t outcome)
     choice_update(choice, pc, outcome);
     break;
   case CUSTOM:
+    perceptronTable_update(ptable, pc, outcome);
+    break;
   default:
     break;
   }
