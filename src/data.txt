@@ -1,54 +1,6 @@
-[[{'gshare': 'Branches:           1546797\n'
-             'Incorrect:            13028\n'
-             'Misprediction Rate:   0.842'},
-  {'tournament:': 'Branches:           1546797\n'
-                  'Incorrect:            15318\n'
-                  'Misprediction Rate:   0.990'},
-  {'custom': 'Branches:           1546797\n'
-             'Incorrect:            12905\n'
-             'Misprediction Rate:   0.834'}],
- [{'gshare': 'Branches:           2422049\n'
-             'Incorrect:            36320\n'
-             'Misprediction Rate:   1.500'},
-  {'tournament:': 'Branches:           2422049\n'
-                  'Incorrect:            71989\n'
-                  'Misprediction Rate:   2.972'},
-  {'custom': 'Branches:           2422049\n'
-             'Incorrect:            32012\n'
-             'Misprediction Rate:   1.322'}],
- [{'gshare': 'Branches:           3771697\n'
-             'Incorrect:           524252\n'
-             'Misprediction Rate:  13.900'},
-  {'tournament:': 'Branches:           3771697\n'
-                  'Incorrect:           476258\n'
-                  'Misprediction Rate:  12.627'},
-  {'custom': 'Branches:           3771697\n'
-             'Incorrect:           516297\n'
-             'Misprediction Rate:  13.689'}],
- [{'gshare': 'Branches:           3755315\n'
-             'Incorrect:            16001\n'
-             'Misprediction Rate:   0.426'},
-  {'tournament:': 'Branches:           3755315\n'
-                  'Incorrect:            16125\n'
-                  'Misprediction Rate:   0.429'},
-  {'custom': 'Branches:           3755315\n'
-             'Incorrect:            15586\n'
-             'Misprediction Rate:   0.415'}],
- [{'gshare': 'Branches:           3014850\n'
-             'Incorrect:           196670\n'
-             'Misprediction Rate:   6.523'},
-  {'tournament:': 'Branches:           3014850\n'
-                  'Incorrect:            79455\n'
-                  'Misprediction Rate:   2.635'},
-  {'custom': 'Branches:           3014850\n'
-             'Incorrect:           151821\n'
-             'Misprediction Rate:   5.036'}],
- [{'gshare': 'Branches:           2563897\n'
-             'Incorrect:           262249\n'
-             'Misprediction Rate:  10.229'},
-  {'tournament:': 'Branches:           2563897\n'
-                  'Incorrect:           217580\n'
-                  'Misprediction Rate:   8.486'},
-  {'custom': 'Branches:           2563897\n'
-             'Incorrect:           257979\n'
-             'Misprediction Rate:  10.062'}]]
+[[{'gshare': '0.842'}, {'tournament:': '0.990'}, {'custom': '0.821'}],
+ [{'gshare': '1.500'}, {'tournament:': '2.972'}, {'custom': '1.495'}],
+ [{'gshare': '13.900'}, {'tournament:': '12.627'}, {'custom': '11.464'}],
+ [{'gshare': '0.426'}, {'tournament:': '0.429'}, {'custom': '0.406'}],
+ [{'gshare': '6.523'}, {'tournament:': '2.635'}, {'custom': '4.897'}],
+ [{'gshare': '10.229'}, {'tournament:': '8.486'}, {'custom': '9.216'}]]

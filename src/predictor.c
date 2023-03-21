@@ -182,8 +182,8 @@ struct PerceptronTable
 {
   Perceptron **pt;
   int table_size;
-  uint32_t ghistory;
-  uint32_t ghistoryMask;
+  uint64_t ghistory;
+  uint64_t ghistoryMask;
   uint32_t pcMask;
 };
 typedef struct PerceptronTable PerceptronTable;
@@ -403,12 +403,12 @@ Perceptron *perceptron_init(uint32_t width)
   return p;
 }
 
-int32_t perceptron_compute(Perceptron *p, uint32_t ghistoryBits)
+int32_t perceptron_compute(Perceptron *p, uint64_t history)
 {
   int32_t out = p->bias;
   for (int i = 0; i < p->width; i++)
   {
-    if (ghistoryBits & (1 << i)) // if bit is 1 then taken
+    if (history & (1 << i)) // if bit is 1 then taken
     {
       out += p->weights[i];
     }
@@ -420,16 +420,16 @@ int32_t perceptron_compute(Perceptron *p, uint32_t ghistoryBits)
   return out;
 }
 
-void perceptron_train(Perceptron *p, uint8_t outcome, uint32_t history_bits) // -1 is NT, 1 is T
+void perceptron_train(Perceptron *p, uint8_t outcome, uint64_t history) // -1 is NT, 1 is T
 {
-  int32_t y_out = perceptron_compute(p, history_bits);
+  int32_t y_out = perceptron_compute(p, history);
   int8_t br_outcome = outcome == 1 ? 1 : -1;
   if (getSign(y_out) != br_outcome || abs(y_out) <= perceptron_threshold)
   {
     p->bias += getSign(y_out);
     for (int i = 0; i < p->width; i++)
     {
-      if (history_bits & (1 << i))
+      if (history & (1 << i))
       {
         p->weights[i] += getSign(y_out);
       }
@@ -448,7 +448,7 @@ PerceptronTable *perceptronTable_init(int pcIndexBits, int ghistoryBits)
   int perceptron_width = ghistoryBits;
   ptable->table_size = table_size;
   ptable->ghistory = 0;
-  ptable->ghistoryMask = getLowerNBits(~0, ghistoryBits);
+  ptable->ghistoryMask = (1 << ghistoryBits) - 1; // need 64bit val
   ptable->pcMask = getLowerNBits(~0, pcIndexBits);
   ptable->pt = calloc(table_size, sizeof(Perceptron *));
   for (int i = 0; i < table_size; i++)
@@ -468,7 +468,9 @@ void perceptronTable_addHistory(PerceptronTable *ptable, bool taken)
 
 Perceptron *perceptronTable_getPerceptron(PerceptronTable *ptable, uint32_t pc)
 {
-  return ptable->pt[(pc ^ ptable->ghistory) & ptable->pcMask];
+  uint32_t hash = ((uint64_t)pc) * (pc + 3) % ptable->pcMask;
+  return ptable->pt[hash];
+  // return ptable->pt[(pc ^ ptable->ghistory) & ptable->pcMask];
 }
 
 bool perceptronTable_predict(PerceptronTable *ptable, uint32_t pc)
@@ -563,7 +565,7 @@ void init_predictor()
     choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
     break;
   case CUSTOM:
-    pshare = pshare_init(4, 13, 30); //(pcIndexBits,ghistoryBits, phistoryBits)
+    pshare = pshare_init(5, 13, 32); //(pcIndexBits,ghistoryBits, phistoryBits)
     break;
   default:
     break;
