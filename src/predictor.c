@@ -23,7 +23,7 @@ const char *email = "tgujar@ucsd.edu";
 // Handy Global for use in output routines
 const char *bpName[4] = {"Static", "Gshare",
                          "Tournament", "Custom"};
-const int perceptron_threshold = 65535;
+const int perceptron_threshold = 524288;
 
 int ghistoryBits; // Number of bits used for Global History
 int lhistoryBits; // Number of bits used for Local History
@@ -485,7 +485,7 @@ void perceptronTable_update(PerceptronTable *ptable, uint32_t pc, uint8_t outcom
   perceptronTable_addHistory(ptable, outcome == 1);
 }
 
-PShare *pshare_init(int pcIndexBits, int ghistoryBits)
+PShare *pshare_init(int pcIndexBits, int ghistoryBits, int phistoryBits)
 {
   PShare *pshare = (PShare *)malloc(sizeof(PShare));
   int table_size = getTableSize(ghistoryBits);
@@ -497,7 +497,7 @@ PShare *pshare_init(int pcIndexBits, int ghistoryBits)
   {
     arr[i] = 2; // set to weakly select gshare
   }
-  pshare->ptable = perceptronTable_init(pcIndexBits, ghistoryBits);
+  pshare->ptable = perceptronTable_init(pcIndexBits, phistoryBits);
   pshare->gshare = gshare_init(ghistoryBits);
   return pshare;
 }
@@ -563,7 +563,7 @@ void init_predictor()
     choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
     break;
   case CUSTOM:
-    pshare = pshare_init(11, 19); //(pcIndexBits,ghistoryBits)
+    pshare = pshare_init(11, 15, 19); //(pcIndexBits,ghistoryBits, phistoryBits)
     break;
   default:
     break;

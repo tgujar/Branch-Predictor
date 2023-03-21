@@ -1,0 +1,36 @@
+[[{'gshare': 'Branches:           1546797\n'
+             'Incorrect:            13028\n'
+             'Misprediction Rate:   0.842'},
+  {'tournament:': 'Branches:           1546797\n'
+                  'Incorrect:            15318\n'
+                  'Misprediction Rate:   0.990'}],
+ [{'gshare': 'Branches:           2422049\n'
+             'Incorrect:            36320\n'
+             'Misprediction Rate:   1.500'},
+  {'tournament:': 'Branches:           2422049\n'
+                  'Incorrect:            71989\n'
+                  'Misprediction Rate:   2.972'}],
+ [{'gshare': 'Branches:           3771697\n'
+             'Incorrect:           524252\n'
+             'Misprediction Rate:  13.900'},
+  {'tournament:': 'Branches:           3771697\n'
+                  'Incorrect:           476258\n'
+                  'Misprediction Rate:  12.627'}],
+ [{'gshare': 'Branches:           3755315\n'
+             'Incorrect:            16001\n'
+             'Misprediction Rate:   0.426'},
+  {'tournament:': 'Branches:           3755315\n'
+                  'Incorrect:            16125\n'
+                  'Misprediction Rate:   0.429'}],
+ [{'gshare': 'Branches:           3014850\n'
+             'Incorrect:           196670\n'
+             'Misprediction Rate:   6.523'},
+  {'tournament:': 'Branches:           3014850\n'
+                  'Incorrect:            79455\n'
+                  'Misprediction Rate:   2.635'}],
+ [{'gshare': 'Branches:           2563897\n'
+             'Incorrect:           262249\n'
+             'Misprediction Rate:  10.229'},
+  {'tournament:': 'Branches:           2563897\n'
+                  'Incorrect:           217580\n'
+                  'Misprediction Rate:   8.486'}]]
