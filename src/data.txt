@@ -1,6 +1,6 @@
 [[{'gshare': '0.842'}, {'tournament:': '0.990'}, {'custom': '0.821'}],
- [{'gshare': '1.500'}, {'tournament:': '2.972'}, {'custom': '1.495'}],
- [{'gshare': '13.900'}, {'tournament:': '12.627'}, {'custom': '11.464'}],
- [{'gshare': '0.426'}, {'tournament:': '0.429'}, {'custom': '0.406'}],
- [{'gshare': '6.523'}, {'tournament:': '2.635'}, {'custom': '4.897'}],
- [{'gshare': '10.229'}, {'tournament:': '8.486'}, {'custom': '9.216'}]]
+ [{'gshare': '1.500'}, {'tournament:': '2.972'}, {'custom': '1.496'}],
+ [{'gshare': '13.900'}, {'tournament:': '12.627'}, {'custom': '11.321'}],
+ [{'gshare': '0.426'}, {'tournament:': '0.429'}, {'custom': '0.404'}],
+ [{'gshare': '6.523'}, {'tournament:': '2.635'}, {'custom': '4.852'}],
+ [{'gshare': '10.229'}, {'tournament:': '8.486'}, {'custom': '9.123'}]]

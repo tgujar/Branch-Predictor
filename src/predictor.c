@@ -468,9 +468,10 @@ void perceptronTable_addHistory(PerceptronTable *ptable, bool taken)
 
 Perceptron *perceptronTable_getPerceptron(PerceptronTable *ptable, uint32_t pc)
 {
-  uint32_t hash = ((uint64_t)pc) * (pc + 3) % ptable->pcMask;
+  uint32_t hash = ((uint64_t)pc) * (pc + 7) % (ptable->pcMask + 1);
   return ptable->pt[hash];
   // return ptable->pt[(pc ^ ptable->ghistory) & ptable->pcMask];
+  // return ptable->pt[pc & ptable->pcMask];
 }
 
 bool perceptronTable_predict(PerceptronTable *ptable, uint32_t pc)
@@ -565,7 +566,7 @@ void init_predictor()
     choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
     break;
   case CUSTOM:
-    pshare = pshare_init(5, 13, 32); //(pcIndexBits,ghistoryBits, phistoryBits)
+    pshare = pshare_init(4, 13, 32); //(pcIndexBits,ghistoryBits, phistoryBits)
     break;
   default:
     break;
