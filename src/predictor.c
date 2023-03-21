@@ -233,7 +233,7 @@ void gshare_add_history(Gshare *g, bool taken)
 
 uint32_t gshare_getIndex(Gshare *g, uint32_t pc)
 {
-  return getLowerNBits(pc, ghistoryBits) ^ g->ghistory;
+  return (pc & g->ghistoryMask) ^ g->ghistory;
 }
 
 uint8_t gshare_predict(Gshare *g, uint32_t pc)
@@ -563,9 +563,7 @@ void init_predictor()
     choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
     break;
   case CUSTOM:
-    ghistoryBits = 19;
-    pcIndexBits = 11;
-    pshare = pshare_init(pcIndexBits, ghistoryBits);
+    pshare = pshare_init(11, 19); //(pcIndexBits,ghistoryBits)
     break;
   default:
     break;
