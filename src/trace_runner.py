@@ -17,7 +17,8 @@ pcIndexBits = 10
 
 preds = {
     "gshare": "gshare:{}".format(gshare_historyBits),
-    "tournament:": "tournament:{}:{}:{}".format(global_historyBits, lhistoryBits, pcIndexBits)
+    "tournament:": "tournament:{}:{}:{}".format(global_historyBits, lhistoryBits, pcIndexBits),
+    "custom": "custom"
 }
 
 
