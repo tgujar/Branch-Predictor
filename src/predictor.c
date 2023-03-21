@@ -23,7 +23,7 @@ const char *email = "tgujar@ucsd.edu";
 // Handy Global for use in output routines
 const char *bpName[4] = {"Static", "Gshare",
                          "Tournament", "Custom"};
-const int perceptron_threshold = 524288;
+const int perceptron_threshold = 32768;
 
 int ghistoryBits; // Number of bits used for Global History
 int lhistoryBits; // Number of bits used for Local History
@@ -563,7 +563,7 @@ void init_predictor()
     choice = choice_init(ghistoryBits, pcIndexBits, lhistoryBits);
     break;
   case CUSTOM:
-    pshare = pshare_init(11, 15, 19); //(pcIndexBits,ghistoryBits, phistoryBits)
+    pshare = pshare_init(4, 13, 30); //(pcIndexBits,ghistoryBits, phistoryBits)
     break;
   default:
     break;
